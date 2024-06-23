@@ -1,0 +1,1818 @@
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ; LED light
+                      00002    
+                      00003 #include P16F84A.INC
+                      00001         LIST
+                      00002 
+                      00003 ;==========================================================================
+                      00004 ; Build date : Jan 06 2020
+                      00005 ;  MPASM PIC16F84A processor include
+                      00006 ; 
+                      00007 ;  (c) Copyright 1999-2020 Microchip Technology, All rights reserved
+                      00008 ;==========================================================================
+                      00009 
+                      00209         LIST
+                      00004    
+Warning[205]: Found directive in column 1. (__config)
+2007   3FF1           00005 __config _XT_OSC & _WDT_OFF & _PWRTE_ON
+                      00006    
+                      00007 ; PIC always start executing at address 0
+                      00008    
+  00000023            00009 Display_Digit EQU H'23' ; Stores the segments of the LED that will be lit up
+                      00010  
+                      00011  ; Stores the 5 digits entered using the keypad
+  00000024            00012 Input1 EQU H'24'
+  00000025            00013 Input2 EQU H'25'
+  00000026            00014 Input3 EQU H'26'
+  00000027            00015 Input4 EQU H'27'
+  00000028            00016 Input5 EQU H'28'
+                      00017  
+                      00018  ; Stores the which digit was last entered
+  00000029            00019 Input_Counter EQU H'29'
+                      00020  
+                      00021  ; Stores the previous input sequence for the purpose of verifying the new usercode before setting it
+  0000002A            00022 Stored_Input1 EQU H'2A'
+  0000002B            00023 Stored_Input2 EQU H'2B'
+  0000002C            00024 Stored_Input3 EQU H'2C'
+  0000002D            00025 Stored_Input4 EQU H'2D'
+  0000002E            00026 Stored_Input5 EQU H'2E'
+                      00027  
+                      00028  ; Is h'01' when a button is being pressed on the keypad
+  0000002F            00029 Pressed_Flag EQU H'2F'
+                      00030  
+                      00031  ; Stores the unchanging mastercode used to set the usercode
+  00000031            00032 Mastercode1 EQU H'31'
+  00000032            00033 Mastercode2 EQU H'32'
+  00000033            00034 Mastercode3 EQU H'33'
+  00000034            00035 Mastercode4 EQU H'34'
+  00000035            00036 Mastercode5 EQU H'35'
+                      00037  
+                      00038  ; Is h'01' when the usercode or mastercode has been entered respectively
+  00000036            00039 Unlocked_Flag EQU H'36'
+  00000037            00040 Master_Flag EQU H'37'
+                      00041 
+                      00042  ; Increments after each password attempt
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+  00000038            00043 Attempt_Counter EQU H'38'
+                      00044  
+                      00045  ; Used for delays
+  00000039            00046 DELAY_COUNT1 EQU H'39'
+  0000003A            00047 DELAY_COUNT2 EQU H'3A'
+  0000003B            00048 DELAY_COUNT3 EQU H'3B'
+  0000003C            00049 DELAY_COUNT4 EQU H'3C'
+                      00050  
+                      00051  ; Used to track the number of delays
+  0000003D            00052 Delay_Loop_Counter EQU H'3D'
+                      00053  
+                      00054  ; Is h'01' when the inputs and stored inputs match or don't match respectively
+  0000003E            00055 Success_Flag EQU H'3E'
+  0000003F            00056 Failure_Flag EQU H'3F'
+  00000040            00057 Confirm_Input EQU H'40'
+                      00058  
+                      00059 
+Warning[205]: Found directive in column 1. (ORG)
+                      00060 ORG h'0' ; defines were the code is to be loaded in memory
+                      00061    
+Warning[203]: Found opcode in column 1. (bsf)
+0000   1683           00062 bsf STATUS,5 ;select bank 1
+Warning[203]: Found opcode in column 1. (movlw)
+0001   3000           00063 movlw b'00000000' ;set up all PORTB as outputs
+Warning[203]: Found opcode in column 1. (movwf)
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0002   0086           00064 movwf TRISB
+                      00065 
+Warning[203]: Found opcode in column 1. (movlw)
+0003   300E           00066 movlw b'00001110'
+Warning[203]: Found opcode in column 1. (movwf)
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0004   0085           00067 movwf TRISA ;
+Warning[203]: Found opcode in column 1. (bcf)
+0005   1283           00068 bcf STATUS,5 ; select bank 0
+                      00069  
+Warning[203]: Found opcode in column 1. (movlw)
+0006   3020           00070 movlw b'00100000'
+Warning[203]: Found opcode in column 1. (movwf)
+0007   00AA           00071 movwf Stored_Input1
+Warning[203]: Found opcode in column 1. (movlw)
+0008   3001           00072 movlw b'00000001'
+Warning[203]: Found opcode in column 1. (movwf)
+0009   00AB           00073 movwf Stored_Input2
+Warning[203]: Found opcode in column 1. (movlw)
+000A   3002           00074 movlw b'00000010'
+Warning[203]: Found opcode in column 1. (movwf)
+000B   00AC           00075 movwf Stored_Input3
+Warning[203]: Found opcode in column 1. (movlw)
+000C   3003           00076 movlw b'00000011'
+Warning[203]: Found opcode in column 1. (movwf)
+000D   00AD           00077 movwf Stored_Input4
+Warning[203]: Found opcode in column 1. (movlw)
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000E   3004           00078 movlw b'00000100'
+Warning[203]: Found opcode in column 1. (movwf)
+000F   00AE           00079 movwf Stored_Input5
+                      00080  
+Warning[203]: Found opcode in column 1. (call)
+0010   2???           00081 call check_usercode_in_eeprom
+                      00082  
+Warning[203]: Found opcode in column 1. (movlw)
+0011   3040           00083 movlw b'01000000'
+Warning[203]: Found opcode in column 1. (movwf)
+0012   00B1           00084 movwf Mastercode1
+Warning[203]: Found opcode in column 1. (movlw)
+0013   3004           00085 movlw b'00000100'
+Warning[203]: Found opcode in column 1. (movwf)
+0014   00B2           00086 movwf Mastercode2
+Warning[203]: Found opcode in column 1. (movlw)
+0015   3003           00087 movlw b'00000011'
+Warning[203]: Found opcode in column 1. (movwf)
+0016   00B3           00088 movwf Mastercode3
+Warning[203]: Found opcode in column 1. (movlw)
+0017   3002           00089 movlw b'00000010'
+Warning[203]: Found opcode in column 1. (movwf)
+0018   00B4           00090 movwf Mastercode4
+Warning[203]: Found opcode in column 1. (movlw)
+0019   3001           00091 movlw b'00000001'
+Warning[203]: Found opcode in column 1. (movwf)
+001A   00B5           00092 movwf Mastercode5
+                      00093 
+                      00094 ; ////////////////////////////////////////////////////////////////////////////////
+                      00095 ; STATES
+                      00096 ; ////////////////////////////////////////////////////////////////////////////////
+                      00097  ; Locked state
+001B                  00098 start
+001B   3000           00099     movlw b'00000000'
+001C   00A9           00100     movwf Input_Counter
+001D   30E3           00101     movlw b'11100011'
+001E   00A3           00102     movwf Display_Digit
+001F   3000           00103     movlw b'00000000'
+0020   00B6           00104     movwf Unlocked_Flag
+0021   3000           00105     movlw b'00000000'
+0022   00B7           00106     movwf Master_Flag
+0023   3001           00107     movlw b'00000001'
+0024   00B8           00108     movwf Attempt_Counter
+0025                  00109 start_loop
+0025   2???           00110     call check_input
+0026   1A29           00111     btfsc Input_Counter, 4
+0027   2???           00112     call check_unlock
+0028   1836           00113     btfsc Unlocked_Flag, 0
+0029   2???           00114     goto unlocked
+002A   1837           00115     btfsc Master_Flag, 0
+002B   2???           00116     goto set_new_usercode
+002C   1938           00117     btfsc Attempt_Counter, 2
+002D   2???           00118     goto locked_out
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE  4
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00119     
+002E   2???           00120     call display_led
+002F   2???           00121     goto start_loop
+                      00122 
+0030                  00123 unlocked
+0030   3000           00124     movlw b'00000000'
+0031   00BD           00125     movwf Delay_Loop_Counter
+0032                  00126 unlocked_loop
+0032   3043           00127     movlw b'01000011'
+0033   00A3           00128     movwf Display_Digit
+0034   2???           00129     call display_led
+0035   2???           00130     call delay_250ms
+                      00131     
+0036   30FF           00132     movlw b'11111111'
+0037   00A3           00133     movwf Display_Digit
+0038   2???           00134     call display_led
+0039   2???           00135     call delay_250ms
+                      00136     
+003A   3043           00137     movlw b'01000011'
+003B   00A3           00138     movwf Display_Digit
+003C   2???           00139     call display_led
+003D   2???           00140     call delay_250ms
+                      00141     
+003E   30FF           00142     movlw b'11111111'
+003F   00A3           00143     movwf Display_Digit
+0040   2???           00144     call display_led
+0041   2???           00145     call delay_250ms
+                      00146     
+0042   193D           00147     btfsc Delay_Loop_Counter, 2
+0043   2???           00148     goto start
+                      00149     
+Message[305]: Using default destination of 1 (file).
+0044   0ABD           00150     incf Delay_Loop_Counter
+                      00151     
+0045   2???           00152     goto unlocked_loop
+                      00153     
+0046                  00154 set_new_usercode
+0046   3000           00155     movlw b'00000000'
+0047   00A9           00156     movwf Input_Counter
+0048   3087           00157     movlw b'10000111'
+0049   00A3           00158     movwf Display_Digit
+004A   3000           00159     movlw b'00000000'
+004B   00BE           00160     movwf Success_Flag
+004C   3000           00161     movlw b'00000000'
+004D   00BF           00162     movwf Failure_Flag
+004E   3000           00163     movlw b'00000000'
+004F   00C0           00164     movwf Confirm_Input
+0050                  00165 set_new_usercode_loop
+0050   2???           00166     call check_input
+                      00167     
+0051   1A29           00168     btfsc Input_Counter, 4
+0052   2???           00169     call validate_usercode
+                      00170     
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE  5
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0053   183E           00171     btfsc Success_Flag, 0
+0054   2???           00172     goto set_state
+0055   183F           00173     btfsc Failure_Flag, 0
+0056   2???           00174     goto not_state
+                      00175     
+0057   2???           00176     call display_led
+0058   2???           00177     goto set_new_usercode_loop
+                      00178     
+0059                  00179 set_state
+0059   3089           00180     movlw b'10001001'
+005A   00A3           00181     movwf Display_Digit
+005B   2???           00182     call display_led
+005C   2???           00183     call song1
+                      00184     
+005D   30A1           00185     movlw b'10100001'
+005E   00A3           00186     movwf Display_Digit
+005F   2???           00187     call display_led
+0060   2???           00188     call song1
+                      00189     
+0061   30A3           00190     movlw b'10100011'
+0062   00A3           00191     movwf Display_Digit
+0063   2???           00192     call display_led
+0064   2???           00193     call song1
+0065   2???           00194     goto start
+                      00195     
+0066                  00196 not_state
+0066   3097           00197     movlw b'10010111'
+0067   00A3           00198     movwf Display_Digit
+0068   2???           00199     call display_led
+0069   2???           00200     call song2
+                      00201     
+006A   3087           00202     movlw b'10000111'
+006B   00A3           00203     movwf Display_Digit
+006C   2???           00204     call display_led
+006D   2???           00205     call song2
+                      00206     
+006E   30A3           00207     movlw b'10100011'
+006F   00A3           00208     movwf Display_Digit
+0070   2???           00209     call display_led
+0071   2???           00210     call song2
+0072   2???           00211     goto start
+                      00212     
+0073                  00213 locked_out
+0073   30E3           00214     movlw b'11100011'
+0074   00A3           00215     movwf Display_Digit
+0075   2???           00216     call display_led
+0076   2???           00217     call delay_20s
+0077   2???           00218     goto start
+                      00219     
+                      00220 ; ////////////////////////////////////////////////////////////////////////////////
+                      00221 ; FUNCTION BLOCK
+                      00222 ; ////////////////////////////////////////////////////////////////////////////////
+0078                  00223 display_led
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE  6
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0078   0823           00224     movfw Display_Digit
+0079   0086           00225     movwf PORTB
+                      00226     
+007A   182F           00227     btfsc Pressed_Flag, 0
+007B   2???           00228     call use_speaker
+                      00229     
+007C   2???           00230     call short_delay
+007D   0008           00231     return
+                      00232     
+007E                  00233 use_speaker
+007E   3001           00234     movlw b'00000001'
+007F   0085           00235     movwf PORTA
+                      00236     
+0080   1829           00237     btfsc Input_Counter, 0
+0081   2???           00238     call delay_pitch_A
+0082   18A9           00239     btfsc Input_Counter, 1
+0083   2???           00240     call delay_pitch_B
+0084   1929           00241     btfsc Input_Counter, 2
+0085   2???           00242     call delay_pitch_C
+0086   19A9           00243     btfsc Input_Counter, 3
+0087   2???           00244     call delay_pitch_D
+                      00245     
+0088   2???           00246     call short_delay
+                      00247     
+0089   3000           00248     movlw b'00000000'
+008A   0085           00249     movwf PORTA
+008B   0008           00250     return
+                      00251     
+008C                  00252 song2
+008C   3004           00253     movlw b'00000100'
+008D   00BD           00254     movwf Delay_Loop_Counter
+008E   2???           00255     call tone
+008F                  00256 song1
+008F   3001           00257     movlw b'00000001'
+0090   00BD           00258     movwf Delay_Loop_Counter
+0091   2???           00259     call tone
+0092   3002           00260     movlw b'00000010'
+0093   00BD           00261     movwf Delay_Loop_Counter
+0094   2???           00262     call tone
+0095   0008           00263     return
+                      00264     
+                      00265 ; Delays =========================================================================
+0096                  00266 short_delay
+0096   3004           00267     movlw H'04'
+0097   00B9           00268     movwf DELAY_COUNT1
+0098   3002           00269     movlw H'02'
+0099   00BA           00270     movwf DELAY_COUNT2
+009A   2???           00271     goto delay_loop
+                      00272     
+009B                  00273 delay_pitch_A
+009B   3004           00274     movlw H'04'
+009C   00B9           00275     movwf DELAY_COUNT1
+009D   3008           00276     movlw H'08'
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE  7
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+009E   00BA           00277     movwf DELAY_COUNT2
+009F   2???           00278     goto delay_loop
+                      00279     
+00A0                  00280 delay_pitch_B
+00A0   3004           00281     movlw H'04'
+00A1   00B9           00282     movwf DELAY_COUNT1
+00A2   3006           00283     movlw H'06'
+00A3   00BA           00284     movwf DELAY_COUNT2
+00A4   2???           00285     goto delay_loop
+                      00286     
+00A5                  00287 delay_pitch_C
+00A5   3004           00288     movlw H'04'
+00A6   00B9           00289     movwf DELAY_COUNT1
+00A7   3004           00290     movlw H'04'
+00A8   00BA           00291     movwf DELAY_COUNT2
+00A9   2???           00292     goto delay_loop
+                      00293     
+00AA                  00294 delay_pitch_D
+00AA   3004           00295     movlw H'04'
+00AB   00B9           00296     movwf DELAY_COUNT1
+00AC   3002           00297     movlw H'02'
+00AD   00BA           00298     movwf DELAY_COUNT2
+00AE   2???           00299     goto delay_loop
+                      00300     
+00AF                  00301 delay_loop
+00AF   0BB9           00302     decfsz DELAY_COUNT1,F
+00B0   2???           00303     goto delay_loop
+00B1   0BBA           00304     decfsz DELAY_COUNT2,F
+00B2   2???           00305     goto delay_loop
+00B3   0008           00306     return
+                      00307     
+00B4                  00308 delay_250ms
+00B4   30FF           00309     movlw H'FF'
+00B5   00B9           00310     movwf DELAY_COUNT1
+00B6   3030           00311     movlw H'30'
+00B7   00BA           00312     movwf DELAY_COUNT2
+00B8   3002           00313     movlw H'02'
+00B9   00BB           00314     movwf DELAY_COUNT3
+00BA                  00315 delay_250ms_loop
+00BA   0BB9           00316     decfsz DELAY_COUNT1,F
+00BB   2???           00317     goto delay_250ms_loop
+00BC   0BBA           00318     decfsz DELAY_COUNT2,F
+00BD   2???           00319     goto delay_250ms_loop
+00BE   0BBB           00320     decfsz DELAY_COUNT3,F
+00BF   2???           00321     goto delay_250ms_loop
+00C0   0008           00322     return
+                      00323     
+00C1                  00324 delay_1s
+00C1   2???           00325     call delay_250ms
+00C2   2???           00326     call delay_250ms
+00C3   2???           00327     call delay_250ms
+00C4   2???           00328     call delay_250ms
+00C5   0008           00329     return
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE  8
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00330     
+00C6                  00331 delay_5s
+00C6   2???           00332     call delay_1s
+00C7   2???           00333     call delay_1s
+00C8   2???           00334     call delay_1s
+00C9   2???           00335     call delay_1s
+00CA   2???           00336     call delay_1s
+00CB   0008           00337     return
+                      00338     
+00CC                  00339 delay_20s
+00CC   2???           00340     call delay_5s
+00CD   2???           00341     call delay_5s
+00CE   2???           00342     call delay_5s
+00CF   2???           00343     call delay_5s
+00D0   0008           00344     return
+                      00345     
+00D1                  00346 tone
+00D1   3002           00347     movlw H'02'
+00D2   00BB           00348     movwf DELAY_COUNT3
+00D3   3002           00349     movlw H'02'
+00D4   00BC           00350     movwf DELAY_COUNT4
+00D5                  00351 tone_loop
+00D5   3001           00352     movlw b'00000001' ; Turns the speaker pin on
+00D6   0085           00353     movwf PORTA
+00D7   183D           00354     btfsc Delay_Loop_Counter, 0
+00D8   2???           00355     call delay_pitch_D
+00D9   18BD           00356     btfsc Delay_Loop_Counter, 1
+00DA   2???           00357     call delay_pitch_C
+00DB   193D           00358     btfsc Delay_Loop_Counter, 2
+00DC   2???           00359     call delay_pitch_B
+00DD   3000           00360     movlw b'00000000' ; Turns the speaker off
+00DE   0085           00361     movwf PORTA
+00DF   0BBB           00362     decfsz DELAY_COUNT3,F
+00E0   2???           00363     goto tone_loop
+00E1   0BBC           00364     decfsz DELAY_COUNT4,F
+00E2   2???           00365     goto tone_loop
+00E3   0008           00366     return
+                      00367 ; End of Delays ==================================================================
+                      00368     
+00E4                  00369 check_usercode_in_eeprom
+00E4   3001           00370     movlw H'01'
+00E5   0089           00371     movwf EEADR
+00E6   1683           00372     bsf STATUS, RP0
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+00E7   1808           00373     btfsc EECON1, RD
+00E8   2???           00374     call wait_eeprom
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+00E9   1408           00375     bsf EECON1, RD
+00EA   1283           00376     bcf STATUS, RP0
+00EB   0808           00377     movf EEDATA, W
+                      00378     
+00EC   062A           00379     xorwf Stored_Input1, W
+00ED   1D03           00380     btfss STATUS, Z
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE  9
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00EE   2???           00381     call store_usercode_in_eeprom
+00EF   0008           00382     return
+                      00383     
+                      00384     
+00F0                  00385 store_usercode_in_eeprom
+00F0   3001           00386     movlw H'01'
+00F1   0089           00387     movwf EEADR
+00F2   082A           00388     movfw Stored_Input1
+00F3   0088           00389     movwf EEDATA
+00F4   2???           00390     call write_eeprom
+                      00391     
+00F5   3002           00392     movlw H'02'
+00F6   0089           00393     movwf EEADR
+00F7   082B           00394     movfw Stored_Input2
+00F8   0088           00395     movwf EEDATA
+00F9   2???           00396     call write_eeprom
+                      00397     
+00FA   3003           00398     movlw H'03'
+00FB   0089           00399     movwf EEADR
+00FC   082C           00400     movfw Stored_Input3
+00FD   0088           00401     movwf EEDATA
+00FE   2???           00402     call write_eeprom
+                      00403     
+00FF   3004           00404     movlw H'04'
+0100   0089           00405     movwf EEADR
+0101   082D           00406     movfw Stored_Input4
+0102   0088           00407     movwf EEDATA
+0103   2???           00408     call write_eeprom
+                      00409     
+0104   3005           00410     movlw H'05'
+0105   0089           00411     movwf EEADR
+0106   082E           00412     movfw Stored_Input5
+0107   0088           00413     movwf EEDATA
+0108   2???           00414     call write_eeprom
+0109   0008           00415     return
+                      00416     
+010A                  00417 write_eeprom
+010A   1683           00418     bsf STATUS, RP0
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+010B   1508           00419     bsf EECON1, WREN
+010C   138B           00420     bcf INTCON, GIE 
+010D   3055           00421     movlw H'55'
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+010E   0089           00422     movwf EECON2
+010F   30AA           00423     movlw H'AA'
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0110   0089           00424     movwf EECON2
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0111   1488           00425     bsf EECON1, WR
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0112   1888           00426     btfsc EECON1, WR 
+0113   2???           00427     goto $-1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 10
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0114   1108           00428     bcf EECON1, WREN
+0115   178B           00429     bsf INTCON, GIE 
+0116   1283           00430     bcf STATUS, RP0
+0117   0008           00431     return
+                      00432     
+                      00433 ; ////////////////////////////////////////////////////////////////////////////////
+                      00434 ; INPUT BLOCK
+                      00435 ; ////////////////////////////////////////////////////////////////////////////////
+0118                  00436 check_input    
+0118   3002           00437     movlw b'00000010'
+0119   0086           00438     movwf PORTB
+011A   1885           00439     btfsc PORTA, 1
+011B   2???           00440     goto set_one
+011C   1905           00441     btfsc PORTA, 2
+011D   2???           00442     goto set_two
+011E   1985           00443     btfsc PORTA, 3
+011F   2???           00444     goto set_three
+                      00445     
+0120   3004           00446     movlw b'00000100'
+0121   0086           00447     movwf PORTB
+0122   1885           00448     btfsc PORTA, 1
+0123   2???           00449     goto set_four
+0124   1905           00450     btfsc PORTA, 2
+0125   2???           00451     goto set_five
+0126   1985           00452     btfsc PORTA, 3
+0127   2???           00453     goto set_six
+                      00454     
+0128   3008           00455     movlw b'00001000'
+0129   0086           00456     movwf PORTB
+012A   1885           00457     btfsc PORTA, 1
+012B   2???           00458     goto set_seven
+012C   1905           00459     btfsc PORTA, 2
+012D   2???           00460     goto set_eight
+012E   1985           00461     btfsc PORTA, 3
+012F   2???           00462     goto set_nine
+                      00463     
+0130   3010           00464     movlw b'00010000'
+0131   0086           00465     movwf PORTB
+0132   1885           00466     btfsc PORTA, 1
+0133   2???           00467     goto set_star
+0134   1905           00468     btfsc PORTA, 2
+0135   2???           00469     goto set_zero
+0136   1985           00470     btfsc PORTA, 3
+0137   2???           00471     goto set_hash
+                      00472     
+0138   1C2F           00473     btfss Pressed_Flag, 0
+0139   2???           00474     call set_locked
+                      00475     
+013A   3000           00476     movlw b'00000000'
+013B   00AF           00477     movwf Pressed_Flag
+013C   0008           00478     return
+                      00479     
+013D                  00480 set_one
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 11
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+013D   182F           00481     btfsc Pressed_Flag, 0
+013E   0008           00482     return
+013F   3001           00483     movlw b'00000001'
+0140   00AF           00484     movwf Pressed_Flag
+                      00485     
+0141   1829           00486     btfsc Input_Counter, 0
+0142   2???           00487     goto set_input2_to_one
+0143   18A9           00488     btfsc Input_Counter, 1
+0144   2???           00489     goto set_input3_to_one
+0145   1929           00490     btfsc Input_Counter, 2
+0146   2???           00491     goto set_input4_to_one
+0147   19A9           00492     btfsc Input_Counter, 3
+0148   2???           00493     goto set_input5_to_one
+0149   0008           00494     return
+                      00495     
+014A                  00496 set_input2_to_one
+014A   3001           00497     movlw b'00000001'
+014B   00A5           00498     movwf Input2
+014C   3002           00499     movlw b'00000010'
+014D   00A9           00500     movwf Input_Counter
+014E   30BB           00501     movlw b'10111011'
+014F   00A3           00502     movwf Display_Digit
+0150   0008           00503     return
+                      00504     
+0151                  00505 set_input3_to_one
+0151   3001           00506     movlw b'00000001'
+0152   00A6           00507     movwf Input3
+0153   3004           00508     movlw b'00000100'
+0154   00A9           00509     movwf Input_Counter
+0155   30B9           00510     movlw b'10111001'
+0156   00A3           00511     movwf Display_Digit
+0157   0008           00512     return
+                      00513     
+0158                  00514 set_input4_to_one
+0158   3001           00515     movlw b'00000001'
+0159   00A7           00516     movwf Input4
+015A   3008           00517     movlw b'00001000'
+015B   00A9           00518     movwf Input_Counter
+015C   3039           00519     movlw b'00111001'
+015D   00A3           00520     movwf Display_Digit
+015E   0008           00521     return
+                      00522     
+015F                  00523 set_input5_to_one
+015F   3001           00524     movlw b'00000001'
+0160   00A8           00525     movwf Input5
+0161   3010           00526     movlw b'00010000'
+0162   00A9           00527     movwf Input_Counter
+0163   3029           00528     movlw b'00101001'
+0164   00A3           00529     movwf Display_Digit
+0165   0008           00530     return
+                      00531     
+                      00532 
+0166                  00533 set_two
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 12
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0166   182F           00534     btfsc Pressed_Flag, 0
+0167   0008           00535     return
+0168   3001           00536     movlw b'00000001'
+0169   00AF           00537     movwf Pressed_Flag
+                      00538     
+016A   1829           00539     btfsc Input_Counter, 0
+016B   2???           00540     goto set_input2_to_two
+016C   18A9           00541     btfsc Input_Counter, 1
+016D   2???           00542     goto set_input3_to_two
+016E   1929           00543     btfsc Input_Counter, 2
+016F   2???           00544     goto set_input4_to_two
+0170   19A9           00545     btfsc Input_Counter, 3
+0171   2???           00546     goto set_input5_to_two
+0172   0008           00547     return
+                      00548     
+0173                  00549 set_input2_to_two
+0173   3002           00550     movlw b'00000010'
+0174   00A5           00551     movwf Input2
+0175   3002           00552     movlw b'00000010'
+0176   00A9           00553     movwf Input_Counter
+0177   30BB           00554     movlw b'10111011'
+0178   00A3           00555     movwf Display_Digit
+0179   0008           00556     return
+                      00557     
+017A                  00558 set_input3_to_two
+017A   3002           00559     movlw b'00000010'
+017B   00A6           00560     movwf Input3
+017C   3004           00561     movlw b'00000100'
+017D   00A9           00562     movwf Input_Counter
+017E   30B9           00563     movlw b'10111001'
+017F   00A3           00564     movwf Display_Digit
+0180   0008           00565     return
+                      00566     
+0181                  00567 set_input4_to_two
+0181   3002           00568     movlw b'00000010'
+0182   00A7           00569     movwf Input4
+0183   3008           00570     movlw b'00001000'
+0184   00A9           00571     movwf Input_Counter
+0185   3039           00572     movlw b'00111001'
+0186   00A3           00573     movwf Display_Digit
+0187   0008           00574     return
+                      00575     
+0188                  00576 set_input5_to_two
+0188   3002           00577     movlw b'00000010'
+0189   00A8           00578     movwf Input5
+018A   3010           00579     movlw b'00010000'
+018B   00A9           00580     movwf Input_Counter
+018C   3029           00581     movlw b'00101001'
+018D   00A3           00582     movwf Display_Digit
+018E   0008           00583     return
+                      00584     
+                      00585      
+018F                  00586 set_three
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 13
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+018F   182F           00587     btfsc Pressed_Flag, 0
+0190   0008           00588     return
+0191   3001           00589     movlw b'00000001'
+0192   00AF           00590     movwf Pressed_Flag
+                      00591     
+0193   1829           00592     btfsc Input_Counter, 0
+0194   2???           00593     goto set_input2_to_three
+0195   18A9           00594     btfsc Input_Counter, 1
+0196   2???           00595     goto set_input3_to_three
+0197   1929           00596     btfsc Input_Counter, 2
+0198   2???           00597     goto set_input4_to_three
+0199   19A9           00598     btfsc Input_Counter, 3
+019A   2???           00599     goto set_input5_to_three
+019B   0008           00600     return
+                      00601     
+019C                  00602 set_input2_to_three
+019C   3003           00603     movlw b'00000011'
+019D   00A5           00604     movwf Input2
+019E   3002           00605     movlw b'00000010'
+019F   00A9           00606     movwf Input_Counter
+01A0   30BB           00607     movlw b'10111011'
+01A1   00A3           00608     movwf Display_Digit
+01A2   0008           00609     return
+                      00610     
+01A3                  00611 set_input3_to_three
+01A3   3003           00612     movlw b'00000011'
+01A4   00A6           00613     movwf Input3
+01A5   3004           00614     movlw b'00000100'
+01A6   00A9           00615     movwf Input_Counter
+01A7   30B9           00616     movlw b'10111001'
+01A8   00A3           00617     movwf Display_Digit
+01A9   0008           00618     return
+                      00619     
+01AA                  00620 set_input4_to_three
+01AA   3003           00621     movlw b'00000011'
+01AB   00A7           00622     movwf Input4
+01AC   3008           00623     movlw b'00001000'
+01AD   00A9           00624     movwf Input_Counter
+01AE   3039           00625     movlw b'00111001'
+01AF   00A3           00626     movwf Display_Digit
+01B0   0008           00627     return
+                      00628     
+01B1                  00629 set_input5_to_three
+01B1   3003           00630     movlw b'00000011'
+01B2   00A8           00631     movwf Input5
+01B3   3010           00632     movlw b'00010000'
+01B4   00A9           00633     movwf Input_Counter
+01B5   3029           00634     movlw b'00101001'
+01B6   00A3           00635     movwf Display_Digit
+01B7   0008           00636     return
+                      00637     
+                      00638     
+01B8                  00639 set_four
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 14
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+01B8   182F           00640     btfsc Pressed_Flag, 0
+01B9   0008           00641     return
+01BA   3001           00642     movlw b'00000001'
+01BB   00AF           00643     movwf Pressed_Flag
+                      00644     
+01BC   1829           00645     btfsc Input_Counter, 0
+01BD   2???           00646     goto set_input2_to_four
+01BE   18A9           00647     btfsc Input_Counter, 1
+01BF   2???           00648     goto set_input3_to_four
+01C0   1929           00649     btfsc Input_Counter, 2
+01C1   2???           00650     goto set_input4_to_four
+01C2   19A9           00651     btfsc Input_Counter, 3
+01C3   2???           00652     goto set_input5_to_four
+01C4   0008           00653     return
+                      00654     
+01C5                  00655 set_input2_to_four
+01C5   3004           00656     movlw b'00000100'
+01C6   00A5           00657     movwf Input2
+01C7   3002           00658     movlw b'00000010'
+01C8   00A9           00659     movwf Input_Counter
+01C9   30BB           00660     movlw b'10111011'
+01CA   00A3           00661     movwf Display_Digit
+01CB   0008           00662     return
+                      00663     
+01CC                  00664 set_input3_to_four
+01CC   3004           00665     movlw b'00000100'
+01CD   00A6           00666     movwf Input3
+01CE   3004           00667     movlw b'00000100'
+01CF   00A9           00668     movwf Input_Counter
+01D0   30B9           00669     movlw b'10111001'
+01D1   00A3           00670     movwf Display_Digit
+01D2   0008           00671     return
+                      00672     
+01D3                  00673 set_input4_to_four
+01D3   3004           00674     movlw b'00000100'
+01D4   00A7           00675     movwf Input4
+01D5   3008           00676     movlw b'00001000'
+01D6   00A9           00677     movwf Input_Counter
+01D7   3039           00678     movlw b'00111001'
+01D8   00A3           00679     movwf Display_Digit
+01D9   0008           00680     return
+                      00681     
+01DA                  00682 set_input5_to_four
+01DA   3004           00683     movlw b'00000100'
+01DB   00A8           00684     movwf Input5
+01DC   3010           00685     movlw b'00010000'
+01DD   00A9           00686     movwf Input_Counter
+01DE   3029           00687     movlw b'00101001'
+01DF   00A3           00688     movwf Display_Digit
+01E0   0008           00689     return
+                      00690     
+                      00691     
+01E1                  00692 set_five
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 15
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+01E1   182F           00693     btfsc Pressed_Flag, 0
+01E2   0008           00694     return
+01E3   3001           00695     movlw b'00000001'
+01E4   00AF           00696     movwf Pressed_Flag
+                      00697     
+01E5   1829           00698     btfsc Input_Counter, 0
+01E6   2???           00699     goto set_input2_to_five
+01E7   18A9           00700     btfsc Input_Counter, 1
+01E8   2???           00701     goto set_input3_to_five
+01E9   1929           00702     btfsc Input_Counter, 2
+01EA   2???           00703     goto set_input4_to_five
+01EB   19A9           00704     btfsc Input_Counter, 3
+01EC   2???           00705     goto set_input5_to_five
+01ED   0008           00706     return
+                      00707     
+01EE                  00708 set_input2_to_five
+01EE   3005           00709     movlw b'00000101'
+01EF   00A5           00710     movwf Input2
+01F0   3002           00711     movlw b'00000010'
+01F1   00A9           00712     movwf Input_Counter
+01F2   30BB           00713     movlw b'10111011'
+01F3   00A3           00714     movwf Display_Digit
+01F4   0008           00715     return
+                      00716     
+01F5                  00717 set_input3_to_five
+01F5   3005           00718     movlw b'00000101'
+01F6   00A6           00719     movwf Input3
+01F7   3004           00720     movlw b'00000100'
+01F8   00A9           00721     movwf Input_Counter
+01F9   30B9           00722     movlw b'10111001'
+01FA   00A3           00723     movwf Display_Digit
+01FB   0008           00724     return
+                      00725     
+01FC                  00726 set_input4_to_five
+01FC   3005           00727     movlw b'00000101'
+01FD   00A7           00728     movwf Input4
+01FE   3008           00729     movlw b'00001000'
+01FF   00A9           00730     movwf Input_Counter
+0200   3039           00731     movlw b'00111001'
+0201   00A3           00732     movwf Display_Digit
+0202   0008           00733     return
+                      00734     
+0203                  00735 set_input5_to_five
+0203   3005           00736     movlw b'00000101'
+0204   00A8           00737     movwf Input5
+0205   3010           00738     movlw b'00010000'
+0206   00A9           00739     movwf Input_Counter
+0207   3029           00740     movlw b'00101001'
+0208   00A3           00741     movwf Display_Digit
+0209   0008           00742     return
+                      00743     
+                      00744     
+020A                  00745 set_six
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 16
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+020A   182F           00746     btfsc Pressed_Flag, 0
+020B   0008           00747     return
+020C   3001           00748     movlw b'00000001'
+020D   00AF           00749     movwf Pressed_Flag
+020E   1829           00750     btfsc Input_Counter, 0
+020F   2???           00751     goto set_input2_to_six
+0210   18A9           00752     btfsc Input_Counter, 1
+0211   2???           00753     goto set_input3_to_six
+0212   1929           00754     btfsc Input_Counter, 2
+0213   2???           00755     goto set_input4_to_six
+0214   19A9           00756     btfsc Input_Counter, 3
+0215   2???           00757     goto set_input5_to_six
+0216   0008           00758     return
+                      00759     
+0217                  00760 set_input2_to_six
+0217   3006           00761     movlw b'00000110'
+0218   00A5           00762     movwf Input2
+0219   3002           00763     movlw b'00000010'
+021A   00A9           00764     movwf Input_Counter
+021B   30BB           00765     movlw b'10111011'
+021C   00A3           00766     movwf Display_Digit
+021D   0008           00767     return
+                      00768     
+021E                  00769 set_input3_to_six
+021E   3006           00770     movlw b'00000110'
+021F   00A6           00771     movwf Input3
+0220   3004           00772     movlw b'00000100'
+0221   00A9           00773     movwf Input_Counter
+0222   30B9           00774     movlw b'10111001'
+0223   00A3           00775     movwf Display_Digit
+0224   0008           00776     return
+                      00777     
+0225                  00778 set_input4_to_six
+0225   3006           00779     movlw b'00000110'
+0226   00A7           00780     movwf Input4
+0227   3008           00781     movlw b'00001000'
+0228   00A9           00782     movwf Input_Counter
+0229   3039           00783     movlw b'00111001'
+022A   00A3           00784     movwf Display_Digit
+022B   0008           00785     return
+                      00786     
+022C                  00787 set_input5_to_six
+022C   3006           00788     movlw b'00000110'
+022D   00A8           00789     movwf Input5
+022E   3010           00790     movlw b'00010000'
+022F   00A9           00791     movwf Input_Counter
+0230   3029           00792     movlw b'00101001'
+0231   00A3           00793     movwf Display_Digit
+0232   0008           00794     return
+                      00795     
+                      00796     
+0233                  00797 set_seven
+0233   182F           00798     btfsc Pressed_Flag, 0
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 17
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0234   0008           00799     return
+0235   3001           00800     movlw b'00000001'
+0236   00AF           00801     movwf Pressed_Flag
+                      00802     
+0237   1829           00803     btfsc Input_Counter, 0
+0238   2???           00804     goto set_input2_to_seven
+0239   18A9           00805     btfsc Input_Counter, 1
+023A   2???           00806     goto set_input3_to_seven
+023B   1929           00807     btfsc Input_Counter, 2
+023C   2???           00808     goto set_input4_to_seven
+023D   19A9           00809     btfsc Input_Counter, 3
+023E   2???           00810     goto set_input5_to_seven
+023F   0008           00811     return
+                      00812     
+0240                  00813 set_input2_to_seven
+0240   3007           00814     movlw b'00000111'
+0241   00A5           00815     movwf Input2
+0242   3002           00816     movlw b'00000010'
+0243   00A9           00817     movwf Input_Counter
+0244   30BB           00818     movlw b'10111011'
+0245   00A3           00819     movwf Display_Digit
+0246   0008           00820     return
+                      00821     
+0247                  00822 set_input3_to_seven
+0247   3007           00823     movlw b'00000111'
+0248   00A6           00824     movwf Input3
+0249   3004           00825     movlw b'00000100'
+024A   00A9           00826     movwf Input_Counter
+024B   30B9           00827     movlw b'10111001'
+024C   00A3           00828     movwf Display_Digit
+024D   0008           00829     return
+                      00830     
+024E                  00831 set_input4_to_seven
+024E   3007           00832     movlw b'00000111'
+024F   00A7           00833     movwf Input4
+0250   3008           00834     movlw b'00001000'
+0251   00A9           00835     movwf Input_Counter
+0252   3039           00836     movlw b'00111001'
+0253   00A3           00837     movwf Display_Digit
+0254   0008           00838     return
+                      00839     
+0255                  00840 set_input5_to_seven
+0255   3007           00841     movlw b'00000111'
+0256   00A8           00842     movwf Input5
+0257   3010           00843     movlw b'00010000'
+0258   00A9           00844     movwf Input_Counter
+0259   3029           00845     movlw b'00101001'
+025A   00A3           00846     movwf Display_Digit
+025B   0008           00847     return
+                      00848     
+                      00849     
+025C                  00850 set_eight
+025C   182F           00851     btfsc Pressed_Flag, 0
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 18
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+025D   0008           00852     return
+025E   3001           00853     movlw b'00000001'
+025F   00AF           00854     movwf Pressed_Flag
+                      00855     
+0260   1829           00856     btfsc Input_Counter, 0
+0261   2???           00857     goto set_input2_to_eight
+0262   18A9           00858     btfsc Input_Counter, 1
+0263   2???           00859     goto set_input3_to_eight
+0264   1929           00860     btfsc Input_Counter, 2
+0265   2???           00861     goto set_input4_to_eight
+0266   19A9           00862     btfsc Input_Counter, 3
+0267   2???           00863     goto set_input5_to_eight
+0268   0008           00864     return
+                      00865     
+0269                  00866 set_input2_to_eight
+0269   3008           00867     movlw b'00001000'
+026A   00A5           00868     movwf Input2
+026B   3002           00869     movlw b'00000010'
+026C   00A9           00870     movwf Input_Counter
+026D   30BB           00871     movlw b'10111011'
+026E   00A3           00872     movwf Display_Digit
+026F   0008           00873     return
+                      00874     
+0270                  00875 set_input3_to_eight
+0270   3008           00876     movlw b'00001000'
+0271   00A6           00877     movwf Input3
+0272   3004           00878     movlw b'00000100'
+0273   00A9           00879     movwf Input_Counter
+0274   30B9           00880     movlw b'10111001'
+0275   00A3           00881     movwf Display_Digit
+0276   0008           00882     return
+                      00883     
+0277                  00884 set_input4_to_eight
+0277   3008           00885     movlw b'00001000'
+0278   00A7           00886     movwf Input4
+0279   3008           00887     movlw b'00001000'
+027A   00A9           00888     movwf Input_Counter
+027B   3039           00889     movlw b'00111001'
+027C   00A3           00890     movwf Display_Digit
+027D   0008           00891     return
+                      00892     
+027E                  00893 set_input5_to_eight
+027E   3008           00894     movlw b'00001000'
+027F   00A8           00895     movwf Input5
+0280   3010           00896     movlw b'00010000'
+0281   00A9           00897     movwf Input_Counter
+0282   3029           00898     movlw b'00101001'
+0283   00A3           00899     movwf Display_Digit
+0284   0008           00900     return
+                      00901     
+                      00902      
+0285                  00903 set_nine
+0285   182F           00904     btfsc Pressed_Flag, 0
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 19
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0286   0008           00905     return
+0287   3001           00906     movlw b'00000001'
+0288   00AF           00907     movwf Pressed_Flag
+                      00908     
+0289   1829           00909     btfsc Input_Counter, 0
+028A   2???           00910     goto set_input2_to_nine
+028B   18A9           00911     btfsc Input_Counter, 1
+028C   2???           00912     goto set_input3_to_nine
+028D   1929           00913     btfsc Input_Counter, 2
+028E   2???           00914     goto set_input4_to_nine
+028F   19A9           00915     btfsc Input_Counter, 3
+0290   2???           00916     goto set_input5_to_nine
+0291   0008           00917     return
+                      00918     
+0292                  00919 set_input2_to_nine
+0292   3009           00920     movlw b'00001001'
+0293   00A5           00921     movwf Input2
+0294   3002           00922     movlw b'00000010'
+0295   00A9           00923     movwf Input_Counter
+0296   30BB           00924     movlw b'10111011'
+0297   00A3           00925     movwf Display_Digit
+0298   0008           00926     return
+                      00927     
+0299                  00928 set_input3_to_nine
+0299   3009           00929     movlw b'00001001'
+029A   00A6           00930     movwf Input3
+029B   3004           00931     movlw b'00000100'
+029C   00A9           00932     movwf Input_Counter
+029D   30B9           00933     movlw b'10111001'
+029E   00A3           00934     movwf Display_Digit
+029F   0008           00935     return
+                      00936     
+02A0                  00937 set_input4_to_nine
+02A0   3009           00938     movlw b'00001001'
+02A1   00A7           00939     movwf Input4
+02A2   3008           00940     movlw b'00001000'
+02A3   00A9           00941     movwf Input_Counter
+02A4   3039           00942     movlw b'00111001'
+02A5   00A3           00943     movwf Display_Digit
+02A6   0008           00944     return
+                      00945     
+02A7                  00946 set_input5_to_nine
+02A7   3009           00947     movlw b'00001001'
+02A8   00A8           00948     movwf Input5
+02A9   3010           00949     movlw b'00010000'
+02AA   00A9           00950     movwf Input_Counter
+02AB   3029           00951     movlw b'00101001'
+02AC   00A3           00952     movwf Display_Digit
+02AD   0008           00953     return
+                      00954     
+                      00955     
+02AE                  00956 set_star
+02AE   182F           00957     btfsc Pressed_Flag, 0
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 20
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+02AF   0008           00958     return
+02B0   3001           00959     movlw b'00000001'
+02B1   00AF           00960     movwf Pressed_Flag
+                      00961     
+02B2   1829           00962     btfsc Input_Counter, 0
+02B3   2???           00963     goto set_input2_to_star
+02B4   18A9           00964     btfsc Input_Counter, 1
+02B5   2???           00965     goto set_input3_to_star
+02B6   1929           00966     btfsc Input_Counter, 2
+02B7   2???           00967     goto set_input4_to_star
+02B8   19A9           00968     btfsc Input_Counter, 3
+02B9   2???           00969     goto set_input5_to_star
+                      00970     
+02BA   2???           00971     goto set_input1_to_star
+02BB   0008           00972     return
+                      00973     
+02BC                  00974 set_input2_to_star
+02BC   3040           00975     movlw b'01000000'
+02BD   00A5           00976     movwf Input2
+02BE   3002           00977     movlw b'00000010'
+02BF   00A9           00978     movwf Input_Counter
+02C0   30BB           00979     movlw b'10111011'
+02C1   00A3           00980     movwf Display_Digit
+02C2   0008           00981     return
+                      00982     
+02C3                  00983 set_input3_to_star
+02C3   3040           00984     movlw b'01000000'
+02C4   00A6           00985     movwf Input3
+02C5   3004           00986     movlw b'00000100'
+02C6   00A9           00987     movwf Input_Counter
+02C7   30B9           00988     movlw b'10111001'
+02C8   00A3           00989     movwf Display_Digit
+02C9   0008           00990     return
+                      00991     
+02CA                  00992 set_input4_to_star
+02CA   3040           00993     movlw b'01000000'
+02CB   00A7           00994     movwf Input4
+02CC   3008           00995     movlw b'00001000'
+02CD   00A9           00996     movwf Input_Counter
+02CE   3039           00997     movlw b'00111001'
+02CF   00A3           00998     movwf Display_Digit
+02D0   0008           00999     return
+                      01000     
+02D1                  01001 set_input5_to_star
+02D1   3040           01002     movlw b'01000000'
+02D2   00A8           01003     movwf Input5
+02D3   3010           01004     movlw b'00010000'
+02D4   00A9           01005     movwf Input_Counter
+02D5   3029           01006     movlw b'00101001'
+02D6   00A3           01007     movwf Display_Digit
+02D7   0008           01008     return
+                      01009     
+02D8                  01010 set_input1_to_star
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 21
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+02D8   3040           01011     movlw b'01000000'
+02D9   00A4           01012     movwf Input1
+02DA   3001           01013     movlw b'00000001'
+02DB   00A9           01014     movwf Input_Counter
+02DC   30BF           01015     movlw b'10111111'
+02DD   00A3           01016     movwf Display_Digit
+02DE   0008           01017     return
+                      01018     
+                      01019     
+02DF                  01020 set_zero
+02DF   182F           01021     btfsc Pressed_Flag, 0
+02E0   0008           01022     return
+02E1   3001           01023     movlw b'00000001'
+02E2   00AF           01024     movwf Pressed_Flag
+                      01025     
+02E3   1829           01026     btfsc Input_Counter, 0
+02E4   2???           01027     goto set_input2_to_zero
+02E5   18A9           01028     btfsc Input_Counter, 1
+02E6   2???           01029     goto set_input3_to_zero
+02E7   1929           01030     btfsc Input_Counter, 2
+02E8   2???           01031     goto set_input4_to_zero
+02E9   19A9           01032     btfsc Input_Counter, 3
+02EA   2???           01033     goto set_input5_to_zero
+02EB   0008           01034     return
+                      01035     
+02EC                  01036 set_input2_to_zero
+02EC   3000           01037     movlw b'00000000'
+02ED   00A5           01038     movwf Input2
+02EE   3002           01039     movlw b'00000010'
+02EF   00A9           01040     movwf Input_Counter
+02F0   30BB           01041     movlw b'10111011'
+02F1   00A3           01042     movwf Display_Digit
+02F2   0008           01043     return
+                      01044     
+02F3                  01045 set_input3_to_zero
+02F3   3000           01046     movlw b'00000000'
+02F4   00A6           01047     movwf Input3
+02F5   3004           01048     movlw b'00000100'
+02F6   00A9           01049     movwf Input_Counter
+02F7   30B9           01050     movlw b'10111001'
+02F8   00A3           01051     movwf Display_Digit
+02F9   0008           01052     return
+                      01053     
+02FA                  01054 set_input4_to_zero
+02FA   3000           01055     movlw b'00000000'
+02FB   00A7           01056     movwf Input4
+02FC   3008           01057     movlw b'00001000'
+02FD   00A9           01058     movwf Input_Counter
+02FE   3039           01059     movlw b'00111001'
+02FF   00A3           01060     movwf Display_Digit
+0300   0008           01061     return
+                      01062     
+0301                  01063 set_input5_to_zero
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 22
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0301   3000           01064     movlw b'00000000'
+0302   00A8           01065     movwf Input5
+0303   3010           01066     movlw b'00010000'
+0304   00A9           01067     movwf Input_Counter
+0305   3029           01068     movlw b'00101001'
+0306   00A3           01069     movwf Display_Digit
+0307   0008           01070     return
+                      01071     
+                      01072     
+0308                  01073 set_hash
+0308   182F           01074     btfsc Pressed_Flag, 0
+0309   0008           01075     return
+030A   3001           01076     movlw b'00000001'
+030B   00AF           01077     movwf Pressed_Flag
+                      01078     
+030C   1829           01079     btfsc Input_Counter, 0
+030D   2???           01080     goto set_input2_to_hash
+030E   18A9           01081     btfsc Input_Counter, 1
+030F   2???           01082     goto set_input3_to_hash
+0310   1929           01083     btfsc Input_Counter, 2
+0311   2???           01084     goto set_input4_to_hash
+0312   19A9           01085     btfsc Input_Counter, 3
+0313   2???           01086     goto set_input5_to_hash
+                      01087     
+0314   2???           01088     goto set_input1_to_hash
+0315   0008           01089     return
+                      01090     
+0316                  01091 set_input2_to_hash
+0316   3020           01092     movlw b'00100000'
+0317   00A5           01093     movwf Input2
+0318   3002           01094     movlw b'00000010'
+0319   00A9           01095     movwf Input_Counter
+031A   30BB           01096     movlw b'10111011'
+031B   00A3           01097     movwf Display_Digit
+031C   0008           01098     return
+                      01099     
+031D                  01100 set_input3_to_hash
+031D   3020           01101     movlw b'00100000'
+031E   00A6           01102     movwf Input3
+031F   3004           01103     movlw b'00000100'
+0320   00A9           01104     movwf Input_Counter
+0321   30B9           01105     movlw b'10111001'
+0322   00A3           01106     movwf Display_Digit
+0323   0008           01107     return
+                      01108     
+0324                  01109 set_input4_to_hash
+0324   3020           01110     movlw b'00100000'
+0325   00A7           01111     movwf Input4
+0326   3008           01112     movlw b'00001000'
+0327   00A9           01113     movwf Input_Counter
+0328   3039           01114     movlw b'00111001'
+0329   00A3           01115     movwf Display_Digit
+032A   0008           01116     return
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 23
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      01117     
+032B                  01118 set_input5_to_hash
+032B   3020           01119     movlw b'00100000'
+032C   00A8           01120     movwf Input5
+032D   3010           01121     movlw b'00010000'
+032E   00A9           01122     movwf Input_Counter
+032F   3029           01123     movlw b'00101001'
+0330   00A3           01124     movwf Display_Digit
+0331   0008           01125     return
+                      01126     
+0332                  01127 set_input1_to_hash
+0332   3020           01128     movlw b'00100000'
+0333   00A4           01129     movwf Input1
+0334   3001           01130     movlw b'00000001'
+0335   00A9           01131     movwf Input_Counter
+0336   30BF           01132     movlw b'10111111'
+0337   00A3           01133     movwf Display_Digit
+0338   0008           01134     return
+                      01135     
+0339                  01136 set_locked
+0339   30E3           01137     movlw b'11100011'
+033A   00A3           01138     movwf Display_Digit
+033B   0008           01139     return
+                      01140     
+                      01141 ; ////////////////////////////////////////////////////////////////////////////////
+                      01142 ; Check Entered Code
+                      01143 ; ////////////////////////////////////////////////////////////////////////////////
+033C                  01144 check_unlock
+Message[305]: Using default destination of 1 (file).
+033C   0AB8           01145     incf Attempt_Counter
+                      01146     
+033D   3001           01147     movlw H'01'
+033E   0089           01148     movwf EEADR
+033F   1683           01149     bsf STATUS, RP0
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0340   1808           01150     btfsc EECON1, RD
+0341   2???           01151     call wait_eeprom
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0342   1408           01152     bsf EECON1, RD
+0343   1283           01153     bcf STATUS, RP0
+0344   0808           01154     movf EEDATA, W
+0345   0624           01155     xorwf Input1, W
+0346   1D03           01156     btfss STATUS, Z
+0347   2???           01157     goto check_mastercode
+                      01158     
+0348   3002           01159     movlw H'02'
+0349   0089           01160     movwf EEADR
+034A   1683           01161     bsf STATUS, RP0
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+034B   1808           01162     btfsc EECON1, RD
+034C   2???           01163     call wait_eeprom
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+034D   1408           01164     bsf EECON1, RD
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 24
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+034E   1283           01165     bcf STATUS, RP0
+034F   0808           01166     movf EEDATA, W
+0350   0625           01167     xorwf Input2, W
+0351   1D03           01168     btfss STATUS, Z
+0352   2???           01169     goto reset_inputs
+                      01170     
+0353   3003           01171     movlw H'03'
+0354   0089           01172     movwf EEADR
+0355   1683           01173     bsf STATUS, RP0
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0356   1808           01174     btfsc EECON1, RD
+0357   2???           01175     call wait_eeprom
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0358   1408           01176     bsf EECON1, RD
+0359   1283           01177     bcf STATUS, RP0
+035A   0808           01178     movf EEDATA, W
+035B   0626           01179     xorwf Input3, W
+035C   1D03           01180     btfss STATUS, Z
+035D   2???           01181     goto reset_inputs
+                      01182     
+035E   3004           01183     movlw H'04'
+035F   0089           01184     movwf EEADR
+0360   1683           01185     bsf STATUS, RP0
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0361   1808           01186     btfsc EECON1, RD
+0362   2???           01187     call wait_eeprom
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0363   1408           01188     bsf EECON1, RD
+0364   1283           01189     bcf STATUS, RP0
+0365   0808           01190     movf EEDATA, W
+0366   0627           01191     xorwf Input4, W
+0367   1D03           01192     btfss STATUS, Z
+0368   2???           01193     goto reset_inputs
+                      01194     
+0369   3005           01195     movlw H'05'
+036A   0089           01196     movwf EEADR
+036B   1683           01197     bsf STATUS, RP0
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+036C   1808           01198     btfsc EECON1, RD
+036D   2???           01199     call wait_eeprom
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+036E   1408           01200     bsf EECON1, RD
+036F   1283           01201     bcf STATUS, RP0
+0370   0808           01202     movf EEDATA, W
+0371   0628           01203     xorwf Input5, W
+0372   1D03           01204     btfss STATUS, Z
+0373   2???           01205     goto reset_inputs
+                      01206     
+0374   3001           01207     movlw b'0000001'
+0375   00B8           01208     movwf Attempt_Counter
+0376   3001           01209     movlw b'00000001'
+0377   00B6           01210     movwf Unlocked_Flag
+0378   2???           01211     goto reset_inputs
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 25
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      01212     
+0379                  01213 wait_eeprom
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0379   1808           01214     btfsc EECON1, RD
+037A   2???           01215     goto $-1
+037B   0008           01216     return
+                      01217     
+037C                  01218 check_mastercode
+037C   0824           01219     movfw Input1
+037D   0631           01220     xorwf Mastercode1, W
+037E   1D03           01221     btfss STATUS, Z
+037F   2???           01222     goto reset_inputs
+                      01223     
+0380   0825           01224     movfw Input2
+0381   0632           01225     xorwf Mastercode2, W
+0382   1D03           01226     btfss STATUS, Z
+0383   2???           01227     goto reset_inputs
+                      01228     
+0384   0826           01229     movfw Input3
+0385   0633           01230     xorwf Mastercode3, W
+0386   1D03           01231     btfss STATUS, Z
+0387   2???           01232     goto reset_inputs
+                      01233     
+0388   0827           01234     movfw Input4
+0389   0634           01235     xorwf Mastercode4, W
+038A   1D03           01236     btfss STATUS, Z
+038B   2???           01237     goto reset_inputs
+                      01238     
+038C   0828           01239     movfw Input5
+038D   0635           01240     xorwf Mastercode5, W
+038E   1D03           01241     btfss STATUS, Z
+038F   2???           01242     goto reset_inputs
+                      01243     
+0390   3001           01244     movlw b'00000001'
+0391   00B8           01245     movwf Attempt_Counter
+0392   3001           01246     movlw b'00000001'
+0393   00B7           01247     movwf Master_Flag
+0394   2???           01248     goto reset_inputs
+                      01249     
+                      01250     
+0395                  01251 reset_inputs
+0395   3000           01252     movlw b'00000000'
+0396   00A9           01253     movwf Input_Counter
+                      01254     
+0397   3000           01255     movlw b'00000000'
+0398   00A4           01256     movwf Input1
+0399   3000           01257     movlw b'00000000'
+039A   00A5           01258     movwf Input2
+039B   3000           01259     movlw b'00000000'
+039C   00A6           01260     movwf Input3
+039D   3000           01261     movlw b'00000000'
+039E   00A7           01262     movwf Input4
+039F   3000           01263     movlw b'00000000'
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 26
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+03A0   00A8           01264     movwf Input5
+03A1   0008           01265     return
+                      01266     
+03A2                  01267 validate_usercode
+03A2   3000           01268     movlw b'00000000'
+03A3   00A9           01269     movwf Input_Counter
+                      01270     
+03A4   1840           01271     btfsc Confirm_Input, 0
+03A5   2???           01272     goto compare_inputs
+                      01273     
+                      01274     ; If Input1 is not # return
+03A6   1EA4           01275     btfss Input1, 5
+03A7   0008           01276     return
+                      01277     ; Save input into second
+03A8   0824           01278     movfw Input1
+03A9   00AA           01279     movwf Stored_Input1
+03AA   0825           01280     movfw Input2
+03AB   00AB           01281     movwf Stored_Input2
+03AC   0826           01282     movfw Input3
+03AD   00AC           01283     movwf Stored_Input3
+03AE   0827           01284     movfw Input4
+03AF   00AD           01285     movwf Stored_Input4
+03B0   0828           01286     movfw Input5
+03B1   00AE           01287     movwf Stored_Input5
+                      01288     
+03B2   3001           01289     movlw b'00000001'
+03B3   00C0           01290     movwf Confirm_Input
+03B4   0008           01291     return
+                      01292     
+03B5                  01293 compare_inputs
+03B5   0824           01294     movfw Input1
+03B6   062A           01295     xorwf Stored_Input1, W
+03B7   1D03           01296     btfss STATUS, Z
+03B8   2???           01297     goto failed_to_set
+                      01298     
+03B9   0825           01299     movfw Input2
+03BA   062B           01300     xorwf Stored_Input2, W
+03BB   1D03           01301     btfss STATUS, Z
+03BC   2???           01302     goto failed_to_set
+                      01303     
+03BD   0826           01304     movfw Input3
+03BE   062C           01305     xorwf Stored_Input3, W
+03BF   1D03           01306     btfss STATUS, Z
+03C0   2???           01307     goto failed_to_set
+                      01308     
+03C1   0827           01309     movfw Input4
+03C2   062D           01310     xorwf Stored_Input4, W
+03C3   1D03           01311     btfss STATUS, Z
+03C4   2???           01312     goto failed_to_set
+                      01313     
+03C5   0828           01314     movfw Input5
+03C6   062E           01315     xorwf Stored_Input5, W
+03C7   1D03           01316     btfss STATUS, Z
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 27
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+03C8   2???           01317     goto failed_to_set
+                      01318     
+03C9   3001           01319     movlw b'00000001'
+03CA   00BE           01320     movwf Success_Flag
+03CB   2???           01321     call store_usercode_in_eeprom
+03CC   0008           01322     return
+                      01323     
+03CD                  01324 failed_to_set
+03CD   3001           01325     movlw b'00000001'
+03CE   00BF           01326     movwf Failure_Flag
+03CF   0008           01327     return
+Warning[205]: Found directive in column 1. (end)
+3FF1                  01328 end
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 28
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+Attempt_Counter                   00000038
+C                                 00000000
+Confirm_Input                     00000040
+DC                                00000001
+DELAY_COUNT1                      00000039
+DELAY_COUNT2                      0000003A
+DELAY_COUNT3                      0000003B
+DELAY_COUNT4                      0000003C
+Delay_Loop_Counter                0000003D
+Display_Digit                     00000023
+EEADR                             00000009
+EECON1                            00000088
+EECON2                            00000089
+EEDATA                            00000008
+EEIE                              00000006
+EEIF                              00000004
+F                                 00000001
+FSR                               00000004
+Failure_Flag                      0000003F
+GIE                               00000007
+INDF                              00000000
+INTCON                            0000000B
+INTE                              00000004
+INTEDG                            00000006
+INTF                              00000001
+IRP                               00000007
+Input1                            00000024
+Input2                            00000025
+Input3                            00000026
+Input4                            00000027
+Input5                            00000028
+Input_Counter                     00000029
+Master_Flag                       00000037
+Mastercode1                       00000031
+Mastercode2                       00000032
+Mastercode3                       00000033
+Mastercode4                       00000034
+Mastercode5                       00000035
+NOT_PD                            00000003
+NOT_RBPU                          00000007
+NOT_TO                            00000004
+OPTION_REG                        00000081
+PCL                               00000002
+PCLATH                            0000000A
+PORTA                             00000005
+PORTB                             00000006
+PS0                               00000000
+PS1                               00000001
+PS2                               00000002
+PSA                               00000003
+Pressed_Flag                      0000002F
+RA0                               00000000
+RA1                               00000001
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 29
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+RA2                               00000002
+RA3                               00000003
+RA4                               00000004
+RB0                               00000000
+RB1                               00000001
+RB2                               00000002
+RB3                               00000003
+RB4                               00000004
+RB5                               00000005
+RB6                               00000006
+RB7                               00000007
+RBIE                              00000003
+RBIF                              00000000
+RD                                00000000
+RP0                               00000005
+RP1                               00000006
+STATUS                            00000003
+Stored_Input1                     0000002A
+Stored_Input2                     0000002B
+Stored_Input3                     0000002C
+Stored_Input4                     0000002D
+Stored_Input5                     0000002E
+Success_Flag                      0000003E
+T0CS                              00000005
+T0IE                              00000005
+T0IF                              00000002
+T0SE                              00000004
+TMR0                              00000001
+TMR0IE                            00000005
+TMR0IF                            00000002
+TRISA                             00000085
+TRISA0                            00000000
+TRISA1                            00000001
+TRISA2                            00000002
+TRISA3                            00000003
+TRISA4                            00000004
+TRISB                             00000086
+TRISB0                            00000000
+TRISB1                            00000001
+TRISB2                            00000002
+TRISB3                            00000003
+TRISB4                            00000004
+TRISB5                            00000005
+TRISB6                            00000006
+TRISB7                            00000007
+Unlocked_Flag                     00000036
+W                                 00000000
+WR                                00000001
+WREN                              00000002
+WRERR                             00000003
+Z                                 00000002
+_.org_0_0113                      00000113
+_.org_0_037A                      0000037A
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 30
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+_CONFIG                           00002007
+_CP_OFF                           00003FFF
+_CP_ON                            0000000F
+_DEVID1                           00002006
+_FOSC_EXTRC                       00003FFF
+_FOSC_HS                          00003FFE
+_FOSC_LP                          00003FFC
+_FOSC_XT                          00003FFD
+_HS_OSC                           00003FFE
+_IDLOC0                           00002000
+_IDLOC1                           00002001
+_IDLOC2                           00002002
+_IDLOC3                           00002003
+_LP_OSC                           00003FFC
+_PWRTE_OFF                        00003FFF
+_PWRTE_ON                         00003FF7
+_RC_OSC                           00003FFF
+_WDTE_OFF                         00003FFB
+_WDTE_ON                          00003FFF
+_WDT_OFF                          00003FFB
+_WDT_ON                           00003FFF
+_XT_OSC                           00003FFD
+__16F84A                          00000001
+check_input                       00000118
+check_mastercode                  0000037C
+check_unlock                      0000033C
+check_usercode_in_eeprom          000000E4
+compare_inputs                    000003B5
+delay_1s                          000000C1
+delay_20s                         000000CC
+delay_250ms                       000000B4
+delay_250ms_loop                  000000BA
+delay_5s                          000000C6
+delay_loop                        000000AF
+delay_pitch_A                     0000009B
+delay_pitch_B                     000000A0
+delay_pitch_C                     000000A5
+delay_pitch_D                     000000AA
+display_led                       00000078
+failed_to_set                     000003CD
+locked_out                        00000073
+not_state                         00000066
+reset_inputs                      00000395
+set_eight                         0000025C
+set_five                          000001E1
+set_four                          000001B8
+set_hash                          00000308
+set_input1_to_hash                00000332
+set_input1_to_star                000002D8
+set_input2_to_eight               00000269
+set_input2_to_five                000001EE
+set_input2_to_four                000001C5
+set_input2_to_hash                00000316
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 31
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+set_input2_to_nine                00000292
+set_input2_to_one                 0000014A
+set_input2_to_seven               00000240
+set_input2_to_six                 00000217
+set_input2_to_star                000002BC
+set_input2_to_three               0000019C
+set_input2_to_two                 00000173
+set_input2_to_zero                000002EC
+set_input3_to_eight               00000270
+set_input3_to_five                000001F5
+set_input3_to_four                000001CC
+set_input3_to_hash                0000031D
+set_input3_to_nine                00000299
+set_input3_to_one                 00000151
+set_input3_to_seven               00000247
+set_input3_to_six                 0000021E
+set_input3_to_star                000002C3
+set_input3_to_three               000001A3
+set_input3_to_two                 0000017A
+set_input3_to_zero                000002F3
+set_input4_to_eight               00000277
+set_input4_to_five                000001FC
+set_input4_to_four                000001D3
+set_input4_to_hash                00000324
+set_input4_to_nine                000002A0
+set_input4_to_one                 00000158
+set_input4_to_seven               0000024E
+set_input4_to_six                 00000225
+set_input4_to_star                000002CA
+set_input4_to_three               000001AA
+set_input4_to_two                 00000181
+set_input4_to_zero                000002FA
+set_input5_to_eight               0000027E
+set_input5_to_five                00000203
+set_input5_to_four                000001DA
+set_input5_to_hash                0000032B
+set_input5_to_nine                000002A7
+set_input5_to_one                 0000015F
+set_input5_to_seven               00000255
+set_input5_to_six                 0000022C
+set_input5_to_star                000002D1
+set_input5_to_three               000001B1
+set_input5_to_two                 00000188
+set_input5_to_zero                00000301
+set_locked                        00000339
+set_new_usercode                  00000046
+set_new_usercode_loop             00000050
+set_nine                          00000285
+set_one                           0000013D
+set_seven                         00000233
+set_six                           0000020A
+set_star                          000002AE
+set_state                         00000059
+MPASM 5.87               DIGITALLOCKCODE.ASM   3-22-2024  3:38:41         PAGE 32
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+set_three                         0000018F
+set_two                           00000166
+set_zero                          000002DF
+short_delay                       00000096
+song1                             0000008F
+song2                             0000008C
+start                             0000001B
+start_loop                        00000025
+store_usercode_in_eeprom          000000F0
+tone                              000000D1
+tone_loop                         000000D5
+unlocked                          00000030
+unlocked_loop                     00000032
+use_speaker                       0000007E
+validate_usercode                 000003A2
+wait_eeprom                       00000379
+write_eeprom                      0000010A
+
+Errors   :     0
+Warnings :    30 reported,     0 suppressed
+Messages :    23 reported,     0 suppressed
+
+
